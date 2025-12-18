@@ -3,8 +3,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
-import { Student, StudentCreateRequest, StudentUpdateRequest } from '../services/students.service';
+import {
+  Student,
+  StudentCreateRequest,
+  StudentUpdateRequest,
+  type StudentPhoneNumber,
+} from '../services/students.service';
 
 interface StudentsModalProps {
   open: boolean;
@@ -14,38 +18,50 @@ interface StudentsModalProps {
   isLoading: boolean;
 }
 
-export function StudentsModal({ open, onOpenChange, student, onSave, isLoading }: StudentsModalProps) {
-  const [formData, setFormData] = useState<StudentCreateRequest>({
-    registration_number: '',
-    name: '',
-    email: '',
-    phone_numbers: [],
-    course: '',
-    enrollment_status: 'active',
-  });
+type PhoneDraft = {
+  ddd: string;
+  number: string;
+  description: string;
+};
 
-  const [phoneInput, setPhoneInput] = useState('');
+const emptyForm: StudentCreateRequest = {
+  name: '',
+  enrollment: '',
+  email: '',
+  courseCurriculum: '',
+  phoneNumbers: [],
+  classes: [],
+};
+
+const emptyPhoneDraft: PhoneDraft = {
+  ddd: '',
+  number: '',
+  description: '',
+};
+
+export function StudentsModal({
+  open,
+  onOpenChange,
+  student,
+  onSave,
+  isLoading,
+}: StudentsModalProps) {
+  const [formData, setFormData] = useState<StudentCreateRequest>(emptyForm);
+  const [phoneDraft, setPhoneDraft] = useState<PhoneDraft>(emptyPhoneDraft);
 
   useEffect(() => {
     if (student) {
       setFormData({
-        registration_number: student.registration_number || '',
         name: student.name || '',
+        enrollment: student.enrollment || '',
         email: student.email || '',
-        phone_numbers: student.phone_numbers || [],
-        course: student.course || '',
-        enrollment_status: student.enrollment_status || 'active',
+        courseCurriculum: student.courseCurriculum ?? student.course_curriculum ?? '',
+        phoneNumbers: student.phoneNumbers ?? [],
+        classes: student.classes ?? [],
       });
     } else {
-      setFormData({
-        registration_number: '',
-        name: '',
-        email: '',
-        phone_numbers: [],
-        course: '',
-        enrollment_status: 'active',
-      });
-      setPhoneInput('');
+      setFormData(emptyForm);
+      setPhoneDraft(emptyPhoneDraft);
     }
   }, [student, open]);
 
@@ -55,36 +71,60 @@ export function StudentsModal({ open, onOpenChange, student, onSave, isLoading }
   };
 
   const handleAddPhone = () => {
-    if (phoneInput.trim()) {
-      setFormData({
-        ...formData,
-        phone_numbers: [...(formData.phone_numbers || []), phoneInput.trim()],
-      });
-      setPhoneInput('');
+    const trimmedDdd = phoneDraft.ddd.trim();
+    const trimmedNumber = phoneDraft.number.trim();
+
+    if (!trimmedDdd || !trimmedNumber) {
+      return;
     }
+
+    const ddd = Number.parseInt(trimmedDdd, 10);
+    const number = Number.parseInt(trimmedNumber, 10);
+
+    if (Number.isNaN(ddd) || Number.isNaN(number)) {
+      return;
+    }
+
+    const newPhone: StudentPhoneNumber = {
+      ddd,
+      number,
+      description: phoneDraft.description.trim() || undefined,
+    };
+
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumbers: [...(prev.phoneNumbers ?? []), newPhone],
+    }));
+
+    setPhoneDraft(emptyPhoneDraft);
   };
 
   const handleRemovePhone = (index: number) => {
-    setFormData({
-      ...formData,
-      phone_numbers: formData.phone_numbers?.filter((_, i) => i !== index) || [],
-    });
+    setFormData((prev) => ({
+      ...prev,
+      phoneNumbers: prev.phoneNumbers?.filter((_, i) => i !== index) ?? [],
+    }));
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px]">
+      <DialogContent className="sm:max-w-[520px]">
         <DialogHeader>
           <DialogTitle>{student ? 'Editar Estudante' : 'Novo Estudante'}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
-              <Label htmlFor="registration_number">Matrícula</Label>
+              <Label htmlFor="enrollment">Matrícula</Label>
               <Input
-                id="registration_number"
-                value={formData.registration_number}
-                onChange={(e) => setFormData({ ...formData, registration_number: e.target.value })}
+                id="enrollment"
+                value={formData.enrollment}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    enrollment: e.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -94,7 +134,12 @@ export function StudentsModal({ open, onOpenChange, student, onSave, isLoading }
               <Input
                 id="name"
                 value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    name: e.target.value,
+                  }))
+                }
                 required
               />
             </div>
@@ -105,64 +150,98 @@ export function StudentsModal({ open, onOpenChange, student, onSave, isLoading }
                 id="email"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    email: e.target.value,
+                  }))
+                }
                 required
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="course">Curso</Label>
+              <Label htmlFor="courseCurriculum">Currículo</Label>
               <Input
-                id="course"
-                value={formData.course}
-                onChange={(e) => setFormData({ ...formData, course: e.target.value })}
+                id="courseCurriculum"
+                value={formData.courseCurriculum ?? ''}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    courseCurriculum: e.target.value,
+                  }))
+                }
               />
             </div>
 
             <div className="grid gap-2">
-              <Label htmlFor="enrollment_status">Status</Label>
-              <Select
-                value={formData.enrollment_status}
-                onValueChange={(value) => setFormData({ ...formData, enrollment_status: value })}
-              >
-                <SelectTrigger id="enrollment_status">
-                  <SelectValue placeholder="Selecione o status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Ativo</SelectItem>
-                  <SelectItem value="inactive">Inativo</SelectItem>
-                  <SelectItem value="graduated">Formado</SelectItem>
-                  <SelectItem value="suspended">Suspenso</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="grid gap-2">
               <Label>Telefones</Label>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Adicionar telefone"
-                  value={phoneInput}
-                  onChange={(e) => setPhoneInput(e.target.value)}
-                  onKeyPress={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleAddPhone();
+              <div className="grid grid-cols-3 gap-2">
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="phone-ddd" className="text-xs text-muted-foreground">
+                    DDD
+                  </Label>
+                  <Input
+                    id="phone-ddd"
+                    placeholder="51"
+                    value={phoneDraft.ddd}
+                    onChange={(e) =>
+                      setPhoneDraft((prev) => ({
+                        ...prev,
+                        ddd: e.target.value,
+                      }))
                     }
-                  }}
-                />
-                <Button type="button" onClick={handleAddPhone} variant="outline">
-                  Adicionar
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="phone-number" className="text-xs text-muted-foreground">
+                    Número
+                  </Label>
+                  <Input
+                    id="phone-number"
+                    placeholder="99999999"
+                    value={phoneDraft.number}
+                    onChange={(e) =>
+                      setPhoneDraft((prev) => ({
+                        ...prev,
+                        number: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label htmlFor="phone-description" className="text-xs text-muted-foreground">
+                    Descrição
+                  </Label>
+                  <Input
+                    id="phone-description"
+                    placeholder="Ex.: Celular"
+                    value={phoneDraft.description}
+                    onChange={(e) =>
+                      setPhoneDraft((prev) => ({
+                        ...prev,
+                        description: e.target.value,
+                      }))
+                    }
+                  />
+                </div>
+              </div>
+              <div className="mt-2">
+                <Button type="button" variant="outline" onClick={handleAddPhone}>
+                  Adicionar telefone
                 </Button>
               </div>
-              {formData.phone_numbers && formData.phone_numbers.length > 0 && (
+              {formData.phoneNumbers && formData.phoneNumbers.length > 0 && (
                 <div className="flex flex-wrap gap-2 mt-2">
-                  {formData.phone_numbers.map((phone, index) => (
+                  {formData.phoneNumbers.map((phone, index) => (
                     <div
-                      key={index}
+                      key={`${phone.ddd}-${phone.number}-${index}`}
                       className="flex items-center gap-2 bg-secondary px-3 py-1 rounded-md text-sm"
                     >
-                      <span>{phone}</span>
+                      <span>
+                        ({phone.ddd}) {String(phone.number).replace(/(\d{4})(\d{4})/, '$1-$2')}
+                        {phone.description ? ` - ${phone.description}` : ''}
+                      </span>
                       <button
                         type="button"
                         onClick={() => handleRemovePhone(index)}

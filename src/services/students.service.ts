@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 export interface StudentPhoneNumber {
   ddd: number;
   number: number;
@@ -11,8 +10,12 @@ export interface Student {
   name: string;
   enrollment: string;
   email: string;
+  /**
+   * Versão em camelCase usada no frontend.
+   * O backend utiliza `course_curriculum`.
+   */
   courseCurriculum?: string;
-  // manter compatibilidade com o backend (snake_case)
+  /** Mantém compatibilidade direta com o backend. */
   course_curriculum?: string;
   phoneNumbers?: StudentPhoneNumber[];
   classes?: string[];
@@ -57,61 +60,9 @@ export interface GetStudentsParams {
 }
 
 function getAuthToken(): string | null {
-  const savedTokens = localStorage.getItem("auth_tokens");
-  if (!savedTokens) return null;
-
-=======
-const API_BASE_URL = 'http://localhost:8080/api/v1';
-
-export interface Student {
-  _id?: string;
-  id?: string;
-  registration_number: string;
-  name: string;
-  email: string;
-  phone_numbers?: string[];
-  course?: string;
-  enrollment_status?: string;
-  createdAt?: string;
-  updatedAt?: string;
-}
-
-export interface StudentCreateRequest {
-  registration_number: string;
-  name: string;
-  email: string;
-  phone_numbers?: string[];
-  course?: string;
-  enrollment_status?: string;
-}
-
-export interface StudentUpdateRequest {
-  registration_number?: string;
-  name?: string;
-  email?: string;
-  phone_numbers?: string[];
-  course?: string;
-  enrollment_status?: string;
-}
-
-export interface StudentListResponse {
-  students: Student[];
-  total: number;
-  page: number;
-  size: number;
-}
-
-export interface PaginationParams {
-  page?: number;
-  size?: number;
-  name?: string;
-}
-
-function getAuthToken(): string | null {
   const savedTokens = localStorage.getItem('auth_tokens');
   if (!savedTokens) return null;
-  
->>>>>>> d5d898a91a02ea00e39174f7d07066635f217c18
+
   try {
     const tokens = JSON.parse(savedTokens);
     return tokens.access_token || null;
@@ -125,86 +76,71 @@ async function apiRequest<T>(
   options: RequestInit = {}
 ): Promise<T> {
   const token = getAuthToken();
-<<<<<<< HEAD
   if (!token) {
-    throw new Error("Token de autenticação não encontrado");
+    throw new Error('Token de autenticação não encontrado');
   }
 
-  const baseUrl = import.meta.env.VITE_BFF_URL || "http://localhost:8080";
+  const baseUrl = (import.meta as any).env?.VITE_BFF_URL || 'http://localhost:8080';
   const url = `${baseUrl}/api/v1${endpoint}`;
 
   const headers: HeadersInit = {
-    "Content-Type": "application/json",
+    'Content-Type': 'application/json',
     Authorization: `Bearer ${token}`,
     ...(options.headers as HeadersInit),
   };
 
-  try {
-    const response = await fetch(url, {
-      ...options,
-      headers,
+  const response = await fetch(url, { ...options, headers });
+  const responseText = await response.text();
+
+  if (!response.ok) {
+    let errorMessage = 'Erro ao chamar serviço de estudantes';
+    try {
+      const errorData = JSON.parse(responseText);
+      if (errorData.detail) {
+        errorMessage = errorData.detail;
+      } else if (errorData.message) {
+        errorMessage = errorData.message;
+      } else if (typeof errorData === 'string') {
+        errorMessage = errorData;
+      }
+    } catch {
+      if (responseText && responseText.length < 200) {
+        errorMessage = responseText;
+      }
+    }
+
+    console.error('API Error (students):', {
+      url,
+      status: response.status,
+      statusText: response.statusText,
+      body: responseText,
     });
 
-    const responseText = await response.text();
+    throw new Error(errorMessage);
+  }
 
-    if (!response.ok) {
-      let errorMessage = "Erro no servidor. Tente novamente mais tarde.";
-      try {
-        const errorData = JSON.parse(responseText);
-        if (errorData.detail) {
-          errorMessage = errorData.detail;
-        } else if (errorData.message) {
-          errorMessage = errorData.message;
-        } else if (typeof errorData === "string") {
-          errorMessage = errorData;
-        }
-      } catch {
-        if (responseText && responseText.length < 100) {
-          errorMessage = responseText;
-        }
-      }
-      console.error("API Error (students):", {
-        url,
-        status: response.status,
-        statusText: response.statusText,
-        body: responseText,
-      });
-      throw new Error(errorMessage);
-    }
+  if (response.status === 204) {
+    return undefined as T;
+  }
 
-    if (response.status === 204) {
-      return undefined as T;
-    }
+  if (!responseText) {
+    return undefined as T;
+  }
 
-    if (!responseText) {
-      return undefined as T;
-    }
-
-    try {
-      const parsedResponse = JSON.parse(responseText);
-      // Alguns endpoints do BFF podem embrulhar em { data, meta }
-      return parsedResponse as T;
-    } catch (parseError) {
-      console.error(
-        "Erro ao parsear resposta JSON (students):",
-        parseError,
-        responseText
-      );
-      throw new Error("Resposta do servidor não é um JSON válido");
-    }
-  } catch (error) {
-    if (error instanceof Error) {
-      throw error;
-    }
-    throw new Error("Erro desconhecido ao fazer requisição de estudantes");
+  try {
+    const parsed = JSON.parse(responseText);
+    // Alguns endpoints do BFF podem embrulhar em { data, meta }
+    return parsed as T;
+  } catch (parseError) {
+    console.error('Erro ao parsear resposta JSON (students):', parseError, responseText);
+    throw new Error('Resposta do servidor não é um JSON válido');
   }
 }
 
 function normalizeStudent(raw: any): Student {
   if (!raw) return raw;
 
-  const id = raw.id || raw._id || "";
-
+  const id = raw.id || raw._id || '';
   const courseCurriculum =
     raw.courseCurriculum ?? raw.course_curriculum ?? undefined;
 
@@ -221,15 +157,15 @@ export async function getStudents(
 ): Promise<StudentListResponse> {
   const queryParams = new URLSearchParams();
 
-  if (params.name) queryParams.append("name", params.name);
-  if (params.enrollment) queryParams.append("enrollment", params.enrollment);
-  if (params.email) queryParams.append("email", params.email);
+  if (params.name) queryParams.append('name', params.name);
+  if (params.enrollment) queryParams.append('enrollment', params.enrollment);
+  if (params.email) queryParams.append('email', params.email);
 
   const queryString = queryParams.toString();
 
   // O BFF hoje apenas faz proxy para o serviço de students, que retorna um array simples.
   const rawResponse = await apiRequest<any>(
-    `/students${queryString ? `?${queryString}` : ""}`
+    `/students${queryString ? `?${queryString}` : ''}`
   );
 
   let items: any[] = [];
@@ -242,7 +178,10 @@ export async function getStudents(
     items = rawResponse.items;
   } else if (rawResponse) {
     // Caso o backend mude para um formato diferente no futuro
-    console.warn("Estrutura de resposta inesperada em getStudents:", rawResponse);
+    console.warn(
+      'Estrutura de resposta inesperada em getStudents:',
+      rawResponse
+    );
     if (Array.isArray((rawResponse as any).students)) {
       items = (rawResponse as any).students;
     }
@@ -278,13 +217,13 @@ export async function createStudent(
     name: data.name,
     enrollment: data.enrollment,
     email: data.email,
-    course_curriculum: data.courseCurriculum ?? data.course_curriculum,
+    course_curriculum: data.courseCurriculum,
     phoneNumbers: data.phoneNumbers ?? [],
     classes: data.classes,
   };
 
-  const response = await apiRequest<any>("/students", {
-    method: "POST",
+  const response = await apiRequest<any>('/students', {
+    method: 'POST',
     body: JSON.stringify(payload),
   });
 
@@ -301,7 +240,10 @@ export async function updateStudent(
   if (data.name !== undefined) payload.name = data.name;
   if (data.enrollment !== undefined) payload.enrollment = data.enrollment;
   if (data.email !== undefined) payload.email = data.email;
-  if (data.courseCurriculum !== undefined || data.course_curriculum !== undefined) {
+  if (
+    data.courseCurriculum !== undefined ||
+    data.course_curriculum !== undefined
+  ) {
     payload.course_curriculum =
       data.courseCurriculum ?? data.course_curriculum;
   }
@@ -309,64 +251,14 @@ export async function updateStudent(
   if (data.classes !== undefined) payload.classes = data.classes;
 
   await apiRequest<void>(`/students/${id}`, {
-    method: "PUT",
+    method: 'PUT',
     body: JSON.stringify(payload),
-=======
-  
-  const headers: HeadersInit = {
-    'Content-Type': 'application/json',
-    ...options.headers,
-  };
-  
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`;
-  }
-  
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    headers,
-  });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({ message: 'Unknown error' }));
-    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
-  }
-  
-  return response.json();
-}
-
-export async function getStudents(params?: PaginationParams): Promise<StudentListResponse> {
-  const queryParams = new URLSearchParams();
-  
-  if (params?.page) queryParams.append('page', params.page.toString());
-  if (params?.size) queryParams.append('size', params.size.toString());
-  if (params?.name) queryParams.append('name', params.name);
-  
-  const query = queryParams.toString();
-  const endpoint = `/students${query ? `?${query}` : ''}`;
-  
-  return apiRequest<StudentListResponse>(endpoint);
-}
-
-export async function createStudent(data: StudentCreateRequest): Promise<Student> {
-  return apiRequest<Student>('/students', {
-    method: 'POST',
-    body: JSON.stringify(data),
-  });
-}
-
-export async function updateStudent(id: string, data: StudentUpdateRequest): Promise<Student> {
-  return apiRequest<Student>(`/students/${id}`, {
-    method: 'PATCH',
-    body: JSON.stringify(data),
->>>>>>> d5d898a91a02ea00e39174f7d07066635f217c18
   });
 }
 
 export async function deleteStudent(id: string): Promise<void> {
   await apiRequest<void>(`/students/${id}`, {
-<<<<<<< HEAD
-    method: "DELETE",
+    method: 'DELETE',
   });
 }
 
@@ -374,20 +266,11 @@ export async function deletePhoneNumber(
   studentId: string,
   phoneNumberId: string
 ): Promise<void> {
-  await apiRequest<void>(`/students/${studentId}/phone-numbers/${phoneNumberId}`, {
-    method: "DELETE",
-  });
+  await apiRequest<void>(
+    `/students/${studentId}/phone-numbers/${phoneNumberId}`,
+    {
+      method: 'DELETE',
+    }
+  );
 }
 
-
-=======
-    method: 'DELETE',
-  });
-}
-
-export async function deletePhoneNumber(studentId: string, phoneIndex: number): Promise<Student> {
-  return apiRequest<Student>(`/students/${studentId}/phone/${phoneIndex}`, {
-    method: 'DELETE',
-  });
-}
->>>>>>> d5d898a91a02ea00e39174f7d07066635f217c18
